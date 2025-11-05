@@ -3,44 +3,45 @@ import torchhd
 
 dim = 10000
 
-# ---- BASE HYPERVECTORS ----
 EsMadreDe, EsPadreDe, EsMujer, EsHombre = torchhd.random(4, dim)
 Ana, Carlos, Luis = torchhd.random(3, dim)
+IMPLICA, ARG1, ARG2  = torchhd.random(3, dim)
 
-IMPLICA, NEG, FORALL, VAR = torchhd.random(4, dim)
+# EsMadreDe(Ana, Luis)
+hecho1 = torchhd.bind(
+    EsMadreDe,
+    torchhd.bundle(torchhd.bind(ARG1, Ana), torchhd.bind(ARG2, Luis))
+)
 
-# ---- HECHOS ----
-hecho_madre = torchhd.bind(EsMadreDe, torchhd.bind(Ana, Luis))   # Madre(Ana, Luis)
-hecho_padre = torchhd.bind(EsPadreDe, torchhd.bind(Carlos, Luis))# Padre(Carlos, Luis)
+# EsPadreDe(Carlos, Luis)
+hecho2 = torchhd.bind(
+    EsPadreDe,
+    torchhd.bundle(torchhd.bind(ARG1, Carlos), torchhd.bind(ARG2, Luis))
+)
 
-memoria_hechos = torchhd.bundle(hecho_madre, hecho_padre)
+# IMPLICA(EsMadreDe, EsMujer)
+regla1 = torchhd.bind(IMPLICA, torchhd.bind(EsMadreDe, EsMujer))
 
-# ---- AXIOMAS ----
-# ∀x∀y (EsMadreDe(x,y) → EsMujer(x))
-axioma_madre_mujer = torchhd.bind(FORALL,torchhd.bind(EsMadreDe, torchhd.bind(IMPLICA, EsMujer)))
+# IMPLICA(EsPadreDe, EsHombre)
+regla2 = torchhd.bind(IMPLICA, torchhd.bind(EsPadreDe, EsHombre))
 
-# ∀x∀y (EsPadreDe(x,y) → EsHombre(x))
-axioma_padre_hombre = torchhd.bind(FORALL,torchhd.bind(EsPadreDe, torchhd.bind(IMPLICA, EsHombre)))
+# MEMORIA
+memoria = torchhd.bundle(hecho1, hecho2).bundle(regla1).bundle(regla2)
 
-memoria_axiomas = torchhd.bundle(axioma_madre_mujer, axioma_padre_hombre)
+print("¿Ana es mujer?\n")
 
-# ---- MEMORIA GLOBAL ----
-memoria = torchhd.bundle(memoria_hechos, memoria_axiomas)
+# memoria * ARG1 * Ana
+consulta1 = torchhd.bind(torchhd.bind(memoria, ARG1), Ana)
 
-# ---- CONSULTA ----
-# Pregunta: ¿Podemos inferir EsMujer(Ana)?
-query = torchhd.bind(EsMujer, Ana)
+sim_madre = torchhd.cosine_similarity(consulta1, EsMadreDe)
+sim_padre = torchhd.cosine_similarity(consulta1, EsPadreDe)
+print(f"EsMadreDe: {sim_madre.item():.4f}")
+print(f"EsPadreDe: {sim_padre.item():.4f}")
 
-# ---- INFERENCIA (muy simplificada) ----
-# Derivar: HechoMadre ⊗ AxiomaMamásSonMujeres
-inferencia = torchhd.bind(hecho_madre, axioma_madre_mujer)
+# memoria * IMPLICA * EsMadreDe
+consulta2 = torchhd.bind(torchhd.bind(memoria, IMPLICA), EsMadreDe)
 
-# Comparamos la inferencia con "EsMujer ⊗ Ana"
-similaridad = torchhd.cosine_similarity(inferencia, query)
-
-print(f"Similitud (¿Ana es mujer?): {similaridad}")
-
-"""
-EsMadreDe * Ana * Luis * FORALL * EsMadreDe * IMPLICA * EsMujer
-EsMujer * Ana
-"""
+sim_mujer = torchhd.cosine_similarity(consulta2, EsMujer)
+sim_hombre = torchhd.cosine_similarity(consulta2, EsHombre)
+print(f"\nEsMujer:  {sim_mujer.item():.4f}")
+print(f"EsHombre: {sim_hombre.item():.4f}")

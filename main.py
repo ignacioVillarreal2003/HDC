@@ -10,21 +10,6 @@ united_states, mexico = torchhd.random(2, dimension)
 washington_dc, mexico_city = torchhd.random(2, dimension)
 united_states_dollar, mexican_peso = torchhd.random(2, dimension)
 
-print("=== Entidades (roles) ===")
-print("País:", country[:10])
-print("Capital:", capital[:10])
-print("Moneda:", currency[:10])
-print()
-
-print("=== Valores de ejemplo ===")
-print("Estados Unidos:", united_states[:10])
-print("México:", mexico[:10])
-print("Washington D.C.:", washington_dc[:10])
-print("Ciudad de México:", mexico_city[:10])
-print("Dólar estadounidense:", united_states_dollar[:10])
-print("Peso mexicano:", mexican_peso[:10])
-print()
-
 # Agrupar valores de cada país
 united_states_values = torch.stack([united_states, washington_dc, united_states_dollar])
 mexico_values = torch.stack([mexico, mexico_city, mexican_peso])
@@ -33,36 +18,52 @@ mexico_values = torch.stack([mexico, mexico_city, mexican_peso])
 us = torchhd.hash_table(keys, united_states_values)
 mx = torchhd.hash_table(keys, mexico_values)
 
-print("=== Hipervectores compuestos ===")
-print("Estados Unidos codificado:", us[:10])
-print("México codificado:", mx[:10])
-print()
-
 # Combinación de representaciones
-mx_us = torchhd.bind(torchhd.inverse(us), mx)
-print("=== Combinación de Estados Unidos y México ===")
-print("mx_us:", mx_us[:10])
-print()
+memory = torchhd.bind(us, mx)
+
+"""
+(country * united_states + capital * washington_dc + currency * united_states_dollar) * (country * mexico + capital * mexico_city + currency * mexican_peso)
+
+(country * united_states + capital * washington_dc + currency * united_states_dollar) * (country * mexico + capital * mexico_city + currency * mexican_peso)
+
+country * united_states * country * mexico 
++ country * united_states * capital * mexico_city
++ country * united_states * currency * mexican_peso
++ capital * washington_dc * country * mexico 
++ capital * washington_dc * capital * mexico_city
++ capital * washington_dc * currency * mexican_peso
++ currency * united_states_dollar * country * mexico 
++ currency * united_states_dollar * capital * mexico_city
++ currency * united_states_dollar * currency * mexican_peso
+
+united_states * mexico 
++ country * united_states * capital * mexico_city
++ country * united_states * currency * mexican_peso
++ capital * washington_dc * country * mexico 
++washington_dc * mexico_city
++ capital * washington_dc * currency * mexican_peso
++ currency * united_states_dollar * country * mexico 
++ currency * united_states_dollar * capital * mexico_city
++ united_states_dollar * mexican_peso
+"""
 
 # Consulta: ¿cuál es el “dólar” de México?
-usd_of_mex = torchhd.bind(mx_us, united_states_dollar)
-print("=== Pregunta: ¿Cuál es el dólar de México? ===")
-print("usd_of_mex:", usd_of_mex[:10])
-print()
+usd_of_mex = torchhd.bind(memory, united_states_dollar)
+print("¿Cuál es el dólar de México?")
 
-memory = torch.cat([keys, united_states_values, mexico_values], dim=0)
-memory_labels = [
+values = torch.cat([keys, united_states_values, mexico_values], dim=0)
+labels = [
     "country", "capital", "currency",
     "united_states", "washington_dc", "united_states_dollar",
     "mexico", "mexico_city", "mexican_peso"
 ]
 
-similarities = torchhd.cosine_similarity(usd_of_mex, memory)
+similarities = torchhd.cosine_similarity(usd_of_mex, values)
 
 print("=== Similitud con vectores conocidos ===")
-for label, sim in zip(memory_labels, similarities.tolist()):
+for label, sim in zip(labels, similarities.tolist()):
     print(f"{label:20s}: {sim:.4f}")
 
 best_match_idx = torch.argmax(similarities).item()
-best_label = memory_labels[best_match_idx]
+best_label = labels[best_match_idx]
 print("\n💡 Resultado más probable:", best_label)
